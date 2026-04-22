@@ -1,4 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron';
+import net from 'node:net';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -6,9 +7,35 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
-const serverPort = Number(process.env.PORT || 3333);
+const preferredPort = Number(process.env.PORT || 3333);
+let currentServerPort = preferredPort;
 let serverInstance;
 let startServer;
+
+function getAvailablePort(startPort) {
+  return new Promise((resolve, reject) => {
+    const tryPort = (port) => {
+      const tester = net.createServer();
+
+      tester.once('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+          tryPort(port + 1);
+          return;
+        }
+
+        reject(error);
+      });
+
+      tester.once('listening', () => {
+        tester.close(() => resolve(port));
+      });
+
+      tester.listen(port, '127.0.0.1');
+    };
+
+    tryPort(startPort);
+  });
+}
 
 async function waitForServer(url, retries = 60) {
   for (let index = 0; index < retries; index += 1) {
@@ -28,12 +55,13 @@ async function waitForServer(url, retries = 60) {
 
 async function createWindow() {
   if (!serverInstance) {
+    currentServerPort = await getAvailablePort(preferredPort);
     process.env.STORAGE_DIR = path.join(app.getPath('userData'), 'storage');
     if (!startServer) {
       ({ startServer } = await import('../backend/server.js'));
     }
-    serverInstance = startServer(serverPort);
-    await waitForServer(`http://localhost:${serverPort}/api/health`);
+    serverInstance = startServer(currentServerPort);
+    await waitForServer(`http://localhost:${currentServerPort}/api/health`);
   }
 
   const win = new BrowserWindow({
@@ -50,7 +78,7 @@ async function createWindow() {
     }
   });
 
-  await win.loadURL(`http://localhost:${serverPort}`);
+  await win.loadURL(`http://localhost:${currentServerPort}`);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);

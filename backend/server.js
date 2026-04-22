@@ -148,6 +148,13 @@ const rotaParaOrdem = (valor = '') => {
   return Number.MAX_SAFE_INTEGER;
 };
 
+const turnoParaOrdem = (valor = '') => {
+  const ordem = ['A', 'B', 'C', 'D', 'ADM'];
+  const indice = ordem.indexOf(String(valor).trim().toUpperCase());
+
+  return indice === -1 ? Number.MAX_SAFE_INTEGER : indice;
+};
+
 const normalizarData = (valor = '') => {
   const texto = String(valor).trim();
 
@@ -324,6 +331,27 @@ const criarResumoEncaixe = ({ id = uuidv4(), createdAt = new Date().toISOString(
   const resultados = gerarResultado({
     solicitante: solicitante.trim(),
     registros
+  });
+  resultados.sort((a, b) => {
+    const turnoDiff = turnoParaOrdem(a.turnoEncaixe) - turnoParaOrdem(b.turnoEncaixe);
+
+    if (turnoDiff !== 0) {
+      return turnoDiff;
+    }
+
+    const rotaDiff = rotaParaOrdem(a.rota) - rotaParaOrdem(b.rota);
+
+    if (rotaDiff !== 0) {
+      return rotaDiff;
+    }
+
+    const horarioDiff = horarioParaMinutos(a.horarioEmbarque) - horarioParaMinutos(b.horarioEmbarque);
+
+    if (horarioDiff !== 0) {
+      return horarioDiff;
+    }
+
+    return a.colaborador.localeCompare(b.colaborador, 'pt-BR');
   });
   const datasUnicas = [...new Set(resultados.map((item) => item.dataEncaixe).filter(Boolean))];
 
