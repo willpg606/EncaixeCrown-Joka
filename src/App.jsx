@@ -3,14 +3,18 @@ import crownBrand from './assets/crown-brand.png';
 import Busca from './pages/Busca';
 import Dashboard from './pages/Dashboard';
 import Historico from './pages/Historico';
+import Inconsistencias from './pages/Inconsistencias';
 import ImportarBase from './pages/ImportarBase';
 import NovoEncaixe from './pages/NovoEncaixe';
+import Solicitantes from './pages/Solicitantes';
 
 const navigation = [
   { label: 'Dashboard', to: '/' },
   { label: 'Novo Encaixe', to: '/novo-encaixe' },
   { label: 'Busca', to: '/busca' },
   { label: 'Histórico', to: '/historico' },
+  { label: 'Inconsistências', to: '/inconsistencias' },
+  { label: 'Solicitantes', to: '/solicitantes' },
   { label: 'Importar Base', to: '/importar-base' }
 ];
 
@@ -89,6 +93,8 @@ function App() {
               <Route path="/novo-encaixe" element={<NovoEncaixe />} />
               <Route path="/busca" element={<Busca />} />
               <Route path="/historico" element={<Historico />} />
+              <Route path="/inconsistencias" element={<Inconsistencias />} />
+              <Route path="/solicitantes" element={<Solicitantes />} />
               <Route path="/importar-base" element={<ImportarBase />} />
             </Routes>
           </div>

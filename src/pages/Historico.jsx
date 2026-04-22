@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { atualizarHistorico, excluirHistorico, getHistory } from '../services/api';
+import { useEffect, useMemo, useState } from 'react';
+import { atualizarHistorico, excluirHistorico, getHistory, getSolicitantes } from '../services/api';
 import { exportarHistoricoExcel, exportarHistoricoPdf } from '../services/parser';
 import { formatarDataBR, formatarHorario } from '../utils/formatar';
+import { obterClasseTurno } from '../utils/turnos';
 
 const emptyEdit = {
   id: '',
@@ -28,6 +29,8 @@ const formatarResumoDatas = (item) => {
 
 function Historico() {
   const [historico, setHistorico] = useState([]);
+  const [solicitantes, setSolicitantes] = useState([]);
+  const [filtroSolicitante, setFiltroSolicitante] = useState('');
   const [selecionado, setSelecionado] = useState(null);
   const [editando, setEditando] = useState(emptyEdit);
   const [salvando, setSalvando] = useState(false);
@@ -48,9 +51,30 @@ function Historico() {
 
   useEffect(() => {
     carregarHistorico();
+    const carregarSolicitantes = async () => {
+      try {
+        const response = await getSolicitantes();
+        setSolicitantes(response.solicitantes || []);
+      } catch {
+        setSolicitantes([]);
+      }
+    };
+
+    carregarSolicitantes();
   }, []);
 
+  const solicitantesFiltrados = useMemo(() => {
+    const termo = filtroSolicitante.trim().toLowerCase();
+
+    if (!termo) {
+      return solicitantes;
+    }
+
+    return solicitantes.filter((item) => item.toLowerCase().includes(termo));
+  }, [filtroSolicitante, solicitantes]);
+
   const abrirEdicao = (item) => {
+    setFiltroSolicitante(item.solicitante || '');
     setEditando({
       id: item.id,
       solicitante: item.solicitante,
@@ -60,6 +84,7 @@ function Historico() {
   };
 
   const fecharEdicao = () => {
+    setFiltroSolicitante('');
     setEditando(emptyEdit);
   };
 
@@ -223,11 +248,24 @@ function Historico() {
               <input
                 className="field"
                 type="text"
+                value={filtroSolicitante}
+                onChange={(event) => setFiltroSolicitante(event.target.value)}
+                placeholder="Buscar solicitante"
+              />
+              <select
+                className="field mt-3"
                 value={editando.solicitante}
                 onChange={(event) =>
                   setEditando((prev) => ({ ...prev, solicitante: event.target.value }))
                 }
-              />
+              >
+                <option value="">Selecione um solicitante</option>
+                {solicitantesFiltrados.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="text-sm font-medium text-slate-700">
@@ -315,7 +353,13 @@ function Historico() {
                   <tr key={item.id} className={item.status === 'ok' ? 'bg-emerald-50/60' : 'bg-rose-50/70'}>
                     <td className="px-4 py-3 text-center">{formatarDataBR(item.dataEncaixe)}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{item.colaborador}</td>
-                    <td className="px-4 py-3 text-center">{item.turnoEncaixe}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`inline-flex min-w-[58px] items-center justify-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${obterClasseTurno(item.turnoEncaixe)}`}
+                      >
+                        {item.turnoEncaixe}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-center">{formatarHorario(item.horarioEmbarque)}</td>
                     <td className="px-4 py-3">{item.pontoEmbarque}</td>
                     <td className="px-4 py-3 text-center">{item.rota}</td>

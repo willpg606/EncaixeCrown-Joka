@@ -1,4 +1,5 @@
 import { formatarDataBR, formatarHorario } from '../utils/formatar';
+import { obterClasseTurno } from '../utils/turnos';
 
 function TabelaResultado({ resultados, loading, onExportExcel, onExportPdf, onCopy }) {
   return (
@@ -70,7 +71,13 @@ function TabelaResultado({ resultados, loading, onExportExcel, onExportPdf, onCo
                   >
                     <td className="px-4 py-3 text-center">{formatarDataBR(item.dataEncaixe)}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{item.colaborador}</td>
-                    <td className="px-4 py-3 text-center">{item.turnoEncaixe}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`inline-flex min-w-[58px] items-center justify-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${obterClasseTurno(item.turnoEncaixe)}`}
+                      >
+                        {item.turnoEncaixe}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-center">{formatarHorario(item.horarioEmbarque)}</td>
                     <td className="px-4 py-3">{item.pontoEmbarque}</td>
                     <td className="px-4 py-3 text-center">{item.rota}</td>

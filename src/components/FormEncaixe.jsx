@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { descreverEscalaPorData } from '../utils/escala';
 
 function FormEncaixe({
   form,
@@ -14,30 +15,14 @@ function FormEncaixe({
   onTurnoBuscaChange,
   sugestoes,
   loadingSugestoes,
-  onAdicionarSugestao
+  onAdicionarSugestao,
+  solicitantes = [],
+  turnosDisponiveis = ['A', 'B', 'C', 'D', 'ADM']
 }) {
-  const turnos = ['A', 'B', 'C', 'D', 'ADM'];
   const [filtroSolicitante, setFiltroSolicitante] = useState('');
-  const solicitantes = [
-    'Alan Nik',
-    'Calandra Tilpe',
-    'Cassio Simao',
-    'Elcio Brandao',
-    'Everton Juscinski',
-    'Gabriela Dogado',
-    'Gilmar Silva',
-    'Isabella Harkatyn',
-    'Jose Lucio',
-    'Juan Miscione',
-    'Karen Santos',
-    'Ketelin Barbosa',
-    'Lucas Borges',
-    'Renato Martins',
-    'Vinicius Souza'
-  ];
   const solicitantesOrdenados = useMemo(
     () => [...solicitantes].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    []
+    [solicitantes]
   );
   const solicitantesFiltrados = useMemo(() => {
     const termo = filtroSolicitante.trim().toLowerCase();
@@ -86,7 +71,7 @@ function FormEncaixe({
               ))}
             </select>
             <span className="mt-2 block text-xs font-normal text-slate-400">
-              Lista em ordem alfabética com filtro rápido. {form.solicitante ? `Selecionado: ${form.solicitante}.` : 'Escolha um solicitante da lista autorizada.'}
+              Lista em ordem alfabética com filtro rápido. {form.solicitante ? `Selecionado: ${form.solicitante}.` : 'Escolha um solicitante cadastrado no sistema.'}
             </span>
           </label>
 
@@ -102,6 +87,9 @@ function FormEncaixe({
             />
             <span className="mt-2 block text-xs font-normal text-slate-400">
               Use como data padrão do lote. Quando precisar misturar datas, informe na linha: `dd/mm/aaaa | Nome - Turno`.
+            </span>
+            <span className="mt-2 block text-xs font-semibold text-brand-600">
+              {descreverEscalaPorData(form.dataEncaixe)}
             </span>
           </label>
         </div>
@@ -152,12 +140,15 @@ function FormEncaixe({
             <label className="text-sm font-medium text-slate-700">
               Turno Encaixe
               <select className="field mt-2" value={turnoBusca} onChange={onTurnoBuscaChange}>
-                {turnos.map((turno) => (
+                {turnosDisponiveis.map((turno) => (
                   <option key={turno} value={turno}>
                     {turno}
                   </option>
                 ))}
               </select>
+              <span className="mt-2 block text-xs font-normal text-slate-400">
+                Lista liberada automaticamente conforme a escala da data escolhida.
+              </span>
             </label>
           </div>
 

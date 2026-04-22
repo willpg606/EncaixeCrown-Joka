@@ -77,3 +77,45 @@ export const buscarPorData = async (data, turno = '') => {
   const response = await fetch(`/api/busca?${query.toString()}`);
   return parseResponse(response);
 };
+
+export const getInconsistencias = async () => {
+  const response = await fetch('/api/inconsistencias');
+  return parseResponse(response);
+};
+
+export const getSolicitantes = async () => {
+  const response = await fetch('/api/solicitantes');
+  return parseResponse(response);
+};
+
+export const criarSolicitante = async (nome) => {
+  const response = await fetch('/api/solicitantes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ nome })
+  });
+
+  return parseResponse(response);
+};
+
+export const atualizarSolicitante = async (nomeAtual, nome) => {
+  const response = await fetch(`/api/solicitantes/${encodeURIComponent(nomeAtual)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ nome })
+  });
+
+  return parseResponse(response);
+};
+
+export const excluirSolicitante = async (nome) => {
+  const response = await fetch(`/api/solicitantes/${encodeURIComponent(nome)}`, {
+    method: 'DELETE'
+  });
+
+  return parseResponse(response);
+};

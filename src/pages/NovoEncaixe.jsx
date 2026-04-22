@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import FormEncaixe from '../components/FormEncaixe';
 import TabelaResultado from '../components/TabelaResultado';
-import { buscarColaboradores, processarEncaixes } from '../services/api';
+import { buscarColaboradores, getSolicitantes, processarEncaixes } from '../services/api';
 import {
   exportarResultadosExcel,
   exportarResultadosPdf,
   formatarResultadosParaCopia,
   parseInput
 } from '../services/parser';
+import { obterTurnosPorData } from '../utils/escala';
 
 const initialState = {
   solicitante: '',
@@ -24,19 +25,40 @@ function NovoEncaixe() {
   const [buscaNome, setBuscaNome] = useState('');
   const [turnoBusca, setTurnoBusca] = useState('A');
   const [sugestoes, setSugestoes] = useState([]);
+  const [solicitantes, setSolicitantes] = useState([]);
   const resultRef = useRef(null);
 
   const preview = parseInput(form.rawInput, form.dataEncaixe);
+  const turnosDisponiveis = useMemo(() => obterTurnosPorData(form.dataEncaixe), [form.dataEncaixe]);
   const parsedPreview = {
     lineCount: preview.length,
     errorCount: preview.filter((item) => !item.valido).length
   };
 
   useEffect(() => {
+    const carregarSolicitantes = async () => {
+      try {
+        const response = await getSolicitantes();
+        setSolicitantes(response.solicitantes || []);
+      } catch {
+        setSolicitantes([]);
+      }
+    };
+
+    carregarSolicitantes();
+  }, []);
+
+  useEffect(() => {
     if (resultados.length > 0) {
       resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [resultados]);
+
+  useEffect(() => {
+    if (!turnosDisponiveis.includes(turnoBusca)) {
+      setTurnoBusca(turnosDisponiveis[0] || 'A');
+    }
+  }, [turnoBusca, turnosDisponiveis]);
 
   useEffect(() => {
     const termo = buscaNome.trim();
@@ -159,6 +181,8 @@ function NovoEncaixe() {
         sugestoes={sugestoes}
         loadingSugestoes={loadingSugestoes}
         onAdicionarSugestao={handleAdicionarSugestao}
+        solicitantes={solicitantes}
+        turnosDisponiveis={turnosDisponiveis}
       />
 
       <div ref={resultRef}>
