@@ -64,6 +64,12 @@ const normalizarNome = (nome = '') =>
     .trim()
     .toUpperCase();
 
+const limparNomeExibicao = (nome = '') =>
+  String(nome)
+    .replace(/\s*\(encaixe\)\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const gerarChave = (nome = '', turno = '') =>
   `${normalizarNome(nome)}${String(turno).trim().toUpperCase()}`;
 
@@ -79,7 +85,7 @@ const extrairNomeETurno = (id = '', funcionario = '') => {
     }
 
     if (funcionarioTexto) {
-      return { nome: funcionarioTexto, turno };
+      return { nome: limparNomeExibicao(funcionarioTexto), turno };
     }
 
     return {
@@ -89,7 +95,7 @@ const extrairNomeETurno = (id = '', funcionario = '') => {
   }
 
   return {
-    nome: funcionarioTexto || idTexto,
+    nome: limparNomeExibicao(funcionarioTexto || idTexto),
     turno: ''
   };
 };
@@ -412,7 +418,8 @@ app.get('/api/base/search', (req, res) => {
       continue;
     }
 
-    const chaveLista = `${alvo}|${colaborador.turno || ''}`;
+    const nomeLimpo = limparNomeExibicao(colaborador.nome || row.funcionario || row.nomeOriginal);
+    const chaveLista = normalizarNome(nomeLimpo);
 
     if (vistos.has(chaveLista)) {
       continue;
@@ -421,7 +428,7 @@ app.get('/api/base/search', (req, res) => {
     vistos.add(chaveLista);
     resultados.push({
       id: row.id,
-      nome: colaborador.nome || row.funcionario || row.nomeOriginal,
+      nome: nomeLimpo,
       turno: colaborador.turno || '',
       rota: row.rota || '',
       horarioEmbarque: formatarHorarioExcel(row.horarioEmbarque || ''),
@@ -467,8 +474,8 @@ app.post('/api/base/upload', upload.single('file'), (req, res) => {
           row['PONTO DE EMBARQUE'] || row.PONTO_EMBARQUE || row['PONTO EMBARQUE'] || ''
         ).trim(),
         funcionario: String(funcionario).trim(),
-        nomeBusca: normalizarNome(colaborador.nome),
-        nomeExibicao: colaborador.nome,
+        nomeBusca: normalizarNome(limparNomeExibicao(colaborador.nome)),
+        nomeExibicao: limparNomeExibicao(colaborador.nome),
         turno: colaborador.turno,
         nomeOriginal: String(funcionario || idOriginal).trim()
       };

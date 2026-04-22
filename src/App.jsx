@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
+import crownBrand from './assets/crown-brand.png';
 import Busca from './pages/Busca';
 import Dashboard from './pages/Dashboard';
 import Historico from './pages/Historico';
@@ -19,7 +20,12 @@ function App() {
       <div className="flex min-h-screen">
         <aside className="hidden w-72 flex-col bg-slate-950 px-6 py-8 text-slate-200 lg:flex">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Crown</p>
+            <img
+              src={crownBrand}
+              alt="Crown Brand Building Packaging"
+              className="h-auto w-full max-w-[240px] object-contain"
+            />
+            <p className="mt-5 text-xs uppercase tracking-[0.35em] text-slate-400">Crown</p>
             <h1 className="mt-3 text-2xl font-semibold text-white">ENCAIXES PRO</h1>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               Operação rápida de encaixe com base Excel, validação instantânea e resultado exportável.
