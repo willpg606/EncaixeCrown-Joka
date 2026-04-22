@@ -70,6 +70,7 @@ async function createWindow() {
     minWidth: 1200,
     minHeight: 760,
     title: 'CROWN ENCAIXES PRO',
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     backgroundColor: '#f4f7fb',
     autoHideMenuBar: true,
     webPreferences: {
