@@ -545,6 +545,7 @@ app.get('/api/history', (_, res) => {
 
 app.get('/api/busca', (req, res) => {
   const dataSolicitada = normalizarData(String(req.query.data || ''));
+  const turnoSolicitado = String(req.query.turno || '').trim().toUpperCase();
 
   if (!dataSolicitada) {
     res.status(400).json({ message: 'Informe uma data válida para a busca.' });
@@ -560,7 +561,11 @@ app.get('/api/busca', (req, res) => {
 
   const resultados = lotesRelacionados.flatMap((item) =>
     item.resultados
-      .filter((resultado) => resultado.dataEncaixe === dataSolicitada)
+      .filter(
+        (resultado) =>
+          resultado.dataEncaixe === dataSolicitada &&
+          (!turnoSolicitado || resultado.turnoEncaixe === turnoSolicitado)
+      )
       .map((resultado) => ({
         ...resultado,
         loteId: item.id,

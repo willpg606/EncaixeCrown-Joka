@@ -67,7 +67,13 @@ export const buscarColaboradores = async (query) => {
   return parseResponse(response);
 };
 
-export const buscarPorData = async (data) => {
-  const response = await fetch(`/api/busca?data=${encodeURIComponent(data)}`);
+export const buscarPorData = async (data, turno = '') => {
+  const query = new URLSearchParams({ data });
+
+  if (turno) {
+    query.set('turno', turno);
+  }
+
+  const response = await fetch(`/api/busca?${query.toString()}`);
   return parseResponse(response);
 };

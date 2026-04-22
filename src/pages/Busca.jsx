@@ -9,7 +9,9 @@ import {
 import { formatarDataBR } from '../utils/formatar';
 
 function Busca() {
+  const turnos = ['', 'A', 'B', 'C', 'D', 'ADM'];
   const [dataBusca, setDataBusca] = useState(new Date().toISOString().split('T')[0]);
+  const [turnoBusca, setTurnoBusca] = useState('');
   const [loading, setLoading] = useState(false);
   const [resultados, setResultados] = useState([]);
   const [resumo, setResumo] = useState(null);
@@ -20,12 +22,12 @@ function Busca() {
     setFeedback(null);
 
     try {
-      const response = await buscarPorData(dataBusca);
+      const response = await buscarPorData(dataBusca, turnoBusca);
       setResultados(response.resultados || []);
       setResumo(response);
       setFeedback({
         type: 'success',
-        message: `${response.totalResultados} encaixes encontrados em ${formatarDataBR(response.data)}.`
+        message: `${response.totalResultados} encaixes encontrados em ${formatarDataBR(response.data)}${turnoBusca ? ` para o turno ${turnoBusca}` : ''}.`
       });
     } catch (error) {
       setResultados([]);
@@ -92,7 +94,7 @@ function Busca() {
           )}
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-[260px_auto]">
+        <div className="mt-6 grid gap-4 md:grid-cols-[260px_220px_auto]">
           <label className="text-sm font-medium text-slate-700">
             Data solicitada
             <input
@@ -101,6 +103,17 @@ function Busca() {
               value={dataBusca}
               onChange={(event) => setDataBusca(event.target.value)}
             />
+          </label>
+
+          <label className="text-sm font-medium text-slate-700">
+            Turno
+            <select className="field" value={turnoBusca} onChange={(event) => setTurnoBusca(event.target.value)}>
+              {turnos.map((turno) => (
+                <option key={turno || 'todos'} value={turno}>
+                  {turno || 'Todos'}
+                </option>
+              ))}
+            </select>
           </label>
 
           <div className="flex items-end gap-3">

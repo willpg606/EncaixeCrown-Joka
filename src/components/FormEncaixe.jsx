@@ -129,17 +129,6 @@ function FormEncaixe({
           </div>
         </div>
 
-        <label className="mt-6 block text-sm font-medium text-slate-700">
-          Colar nomes + turnos
-          <textarea
-            className="field min-h-[240px] resize-y"
-            name="rawInput"
-            value={form.rawInput}
-            onChange={onChange}
-            placeholder={'22/04/2026 | João Silva - A\n23/04/2026 | Maria Souza - B\nCarlos Lima - ADM'}
-          />
-        </label>
-
         <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -206,6 +195,17 @@ function FormEncaixe({
               ))}
           </div>
         </div>
+
+        <label className="mt-6 block text-sm font-medium text-slate-700">
+          Colar nomes + turnos
+          <textarea
+            className="field min-h-[240px] resize-y"
+            name="rawInput"
+            value={form.rawInput}
+            onChange={onChange}
+            placeholder={'22/04/2026 | João Silva - A\n23/04/2026 | Maria Souza - B\nCarlos Lima - ADM'}
+          />
+        </label>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <button className="btn-primary" type="button" onClick={onSubmit} disabled={loading}>
