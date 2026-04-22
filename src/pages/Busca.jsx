@@ -68,12 +68,24 @@ function Busca() {
   };
 
   const handleExportExcel = () => {
-    exportarResultadosExcel(resultados);
+    exportarResultadosExcel(resultados, {
+      titulo: 'CROWN ENCAIXES PRO',
+      subtitulo: 'Busca unificada por data',
+      dataReferencia: formatarDataBR(dataBusca),
+      solicitante: resumo?.resumoDia?.porSolicitante?.length === 1 ? resumo.resumoDia.porSolicitante[0].chave : 'Múltiplos solicitantes',
+      nomeArquivo: `busca-${dataBusca}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
+    });
     setFeedback({ type: 'success', message: 'Arquivo Excel gerado com sucesso.' });
   };
 
   const handleExportPdf = () => {
-    exportarResultadosPdf(resultados);
+    exportarResultadosPdf(resultados, {
+      titulo: 'CROWN ENCAIXES PRO',
+      subtitulo: turnoBusca ? `Busca unificada por data • Turno ${turnoBusca}` : 'Busca unificada por data',
+      dataReferencia: formatarDataBR(dataBusca),
+      solicitante: resumo?.resumoDia?.porSolicitante?.length === 1 ? resumo.resumoDia.porSolicitante[0].chave : 'Múltiplos solicitantes',
+      nomeArquivo: `busca-${dataBusca}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
+    });
     setFeedback({ type: 'success', message: 'Arquivo PDF gerado com sucesso.' });
   };
 

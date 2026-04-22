@@ -103,21 +103,91 @@ export function formatarResultadosParaCopia(resultados = []) {
   return gerarResultado(resultados).join('\n');
 }
 
-export function exportarResultadosExcel(resultados = []) {
-  const rows = resultados.map((item) => ({
+function criarNomeSeguro(valor = '') {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'crown-encaixes-pro';
+}
+
+function obterResumoExportacao(resultados = [], contexto = {}) {
+  const datas = [...new Set(resultados.map((item) => formatarDataBR(item.dataEncaixe)).filter(Boolean))];
+  const solicitantes = [...new Set(resultados.map((item) => item.solicitante).filter(Boolean))];
+  const rotas = [...new Set(resultados.map((item) => item.rota).filter(Boolean))];
+
+  return {
+    titulo: contexto.titulo || 'CROWN ENCAIXES PRO',
+    subtitulo: contexto.subtitulo || 'Relatório operacional de encaixes',
+    dataReferencia: contexto.dataReferencia || (datas.length === 1 ? datas[0] : datas.length > 1 ? 'Múltiplas datas' : '-'),
+    solicitante: contexto.solicitante || (solicitantes.length === 1 ? solicitantes[0] : solicitantes.length > 1 ? 'Múltiplos solicitantes' : '-'),
+    totalResultados: resultados.length,
+    totalOk: resultados.filter((item) => item.status === 'ok').length,
+    totalErros: resultados.filter((item) => item.status !== 'ok').length,
+    totalRotas: rotas.filter((item) => item && item !== 'NÃO ENCONTRADO').length,
+    emitidoEm: new Date().toLocaleString('pt-BR')
+  };
+}
+
+function definirLarguras(worksheet, larguras = []) {
+  worksheet['!cols'] = larguras.map((width) => ({ wch: width }));
+}
+
+function criarLinhasResumo(resumo) {
+  return [
+    ['Relatório', resumo.titulo],
+    ['Descrição', resumo.subtitulo],
+    ['Data de referência', resumo.dataReferencia],
+    ['Solicitante', resumo.solicitante],
+    ['Total exportado', resumo.totalResultados],
+    ['Total OK', resumo.totalOk],
+    ['Total erros', resumo.totalErros],
+    ['Rotas válidas', resumo.totalRotas],
+    ['Emitido em', resumo.emitidoEm]
+  ];
+}
+
+function montarRowsExcel(resultados = []) {
+  return resultados.map((item) => ({
     'Data do Encaixe': formatarDataBR(item.dataEncaixe),
     Colaborador: item.colaborador,
     'Turno Encaixe': item.turnoEncaixe,
     'Horário Embarque': formatarHorario(item.horarioEmbarque),
     'Ponto Embarque': item.pontoEmbarque,
     Rota: item.rota,
-    Solicitante: item.solicitante
+    Solicitante: item.solicitante,
+    Status: item.status === 'ok' ? 'OK' : 'ERRO'
   }));
+}
+
+function nomeArquivoPadrao(contexto = {}, extensao = 'xlsx') {
+  const base = criarNomeSeguro(contexto.nomeArquivo || contexto.titulo || 'crown-encaixes-pro');
+
+  return `${base}.${extensao}`;
+}
+
+export function exportarResultadosExcel(resultados = [], contexto = {}) {
+  const rows = montarRowsExcel(resultados);
+  const resumo = obterResumoExportacao(resultados, contexto);
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
+  definirLarguras(worksheet, [16, 34, 16, 18, 42, 10, 22, 10]);
+  const resumoSheet = XLSX.utils.aoa_to_sheet(criarLinhasResumo(resumo));
+  definirLarguras(resumoSheet, [18, 42]);
   const workbook = XLSX.utils.book_new();
+
+  workbook.Props = {
+    Title: resumo.titulo,
+    Subject: resumo.subtitulo,
+    Author: 'CROWN ENCAIXES PRO',
+    CreatedDate: new Date()
+  };
+
+  XLSX.utils.book_append_sheet(workbook, resumoSheet, 'Resumo');
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Encaixes');
-  XLSX.writeFile(workbook, 'crown-encaixes-pro.xlsx');
+  XLSX.writeFile(workbook, nomeArquivoPadrao(contexto, 'xlsx'));
 }
 
 function montarLinhasPdf(resultados = []) {
@@ -135,6 +205,12 @@ function gerarPdfOperacional({ resultados = [], titulo, subtitulo, arquivo }) {
     return;
   }
 
+  const resumo = obterResumoExportacao(resultados, {
+    titulo,
+    subtitulo,
+    nomeArquivo: arquivo.replace(/\.pdf$/i, '')
+  });
+
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -143,15 +219,25 @@ function gerarPdfOperacional({ resultados = [], titulo, subtitulo, arquivo }) {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(titulo, 14, 16);
+  doc.text(resumo.titulo, 14, 16);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(90, 106, 133);
-  doc.text(subtitulo, 14, 22);
+  doc.text(resumo.subtitulo, 14, 22);
+
+  doc.setDrawColor(203, 213, 225);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(200, 10, 78, 18, 2, 2, 'FD');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Emitido em: ${resumo.emitidoEm}`, 204, 16);
+  doc.text(`Data: ${resumo.dataReferencia}`, 204, 20.5);
+  doc.text(`Solicitante: ${resumo.solicitante}`, 204, 25);
+  doc.text(`Total: ${resumo.totalResultados} | OK: ${resumo.totalOk} | Erros: ${resumo.totalErros}`, 14, 27);
 
   autoTable(doc, {
-    startY: 28,
+    startY: 31,
     head: [['DATA', 'COLABORADOR', 'TURNO ENCAIXE', 'OBS', 'HORARIO']],
     body: montarLinhasPdf(resultados),
     styles: {
@@ -190,12 +276,12 @@ function gerarPdfOperacional({ resultados = [], titulo, subtitulo, arquivo }) {
   doc.save(arquivo);
 }
 
-export function exportarResultadosPdf(resultados = []) {
+export function exportarResultadosPdf(resultados = [], contexto = {}) {
   gerarPdfOperacional({
     resultados,
-    titulo: 'CROWN ENCAIXES PRO',
-    subtitulo: 'Relatorio operacional de encaixes',
-    arquivo: 'crown-encaixes-pro.pdf'
+    titulo: contexto.titulo || 'CROWN ENCAIXES PRO',
+    subtitulo: contexto.subtitulo || 'Relatório operacional de encaixes',
+    arquivo: nomeArquivoPadrao(contexto, 'pdf')
   });
 }
 
@@ -203,25 +289,16 @@ export function exportarHistoricoExcel(lote) {
   if (!lote?.resultados?.length) {
     return;
   }
-
-  const rows = lote.resultados.map((item) => ({
-    'Criado em': lote.createdAt ? new Date(lote.createdAt).toLocaleString('pt-BR') : '',
-    'Data do Encaixe': formatarDataBR(item.dataEncaixe),
-    Colaborador: item.colaborador,
-    'Turno Encaixe': item.turnoEncaixe,
-    'Horário Embarque': formatarHorario(item.horarioEmbarque),
-    'Ponto Embarque': item.pontoEmbarque,
-    Rota: item.rota,
-    Solicitante: item.solicitante,
-    Status: item.status === 'ok' ? 'OK' : 'ERRO'
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Historico');
-
-  const nomeArquivo = `historico-${formatarDataBR(lote.dataEncaixe || '').replaceAll('/', '-') || 'encaixe'}.xlsx`;
-  XLSX.writeFile(workbook, nomeArquivo);
+  exportarResultadosExcel(lote.resultados, {
+    titulo: `Solicitação de ${lote.solicitante}`,
+    subtitulo: `Histórico operacional • ${lote.createdAt ? new Date(lote.createdAt).toLocaleString('pt-BR') : ''}`,
+    dataReferencia:
+      lote.datasEncaixe?.length > 1
+        ? 'Múltiplas datas'
+        : formatarDataBR(lote.dataEncaixe || lote.dataPadrao || ''),
+    solicitante: lote.solicitante,
+    nomeArquivo: `historico-${formatarDataBR(lote.dataEncaixe || lote.dataPadrao || '').replaceAll('/', '-') || 'encaixe'}`
+  });
 }
 
 export function exportarHistoricoPdf(lote) {

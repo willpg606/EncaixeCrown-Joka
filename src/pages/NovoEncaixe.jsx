@@ -143,12 +143,24 @@ function NovoEncaixe() {
   };
 
   const handleExport = () => {
-    exportarResultadosExcel(resultados);
+    exportarResultadosExcel(resultados, {
+      titulo: 'CROWN ENCAIXES PRO',
+      subtitulo: 'Resultado do processamento atual',
+      dataReferencia: form.dataEncaixe ? form.dataEncaixe.split('-').reverse().join('/') : '',
+      solicitante: form.solicitante,
+      nomeArquivo: `encaixes-${form.dataEncaixe || 'lote-atual'}`
+    });
     setFeedback({ type: 'success', message: 'Arquivo Excel gerado com sucesso.' });
   };
 
   const handleExportPdf = () => {
-    exportarResultadosPdf(resultados);
+    exportarResultadosPdf(resultados, {
+      titulo: 'CROWN ENCAIXES PRO',
+      subtitulo: 'Resultado do processamento atual',
+      dataReferencia: form.dataEncaixe ? form.dataEncaixe.split('-').reverse().join('/') : '',
+      solicitante: form.solicitante,
+      nomeArquivo: `encaixes-${form.dataEncaixe || 'lote-atual'}`
+    });
     setFeedback({ type: 'success', message: 'Arquivo PDF gerado com sucesso.' });
   };
 

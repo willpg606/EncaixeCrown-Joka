@@ -21,8 +21,8 @@ const navigation = [
 function App() {
   return (
     <div className="min-h-screen bg-surface bg-hero-grid text-slate-900">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-72 flex-col bg-slate-950 px-6 py-8 text-slate-200 lg:flex">
+      <div className="min-h-screen lg:pl-72">
+        <aside className="hidden fixed inset-y-0 left-0 z-30 h-screen w-72 flex-col overflow-y-auto bg-slate-950 px-6 py-8 text-slate-200 lg:flex">
           <div>
             <img
               src={crownBrand}
@@ -62,7 +62,7 @@ function App() {
           </div>
         </aside>
 
-        <main className="flex-1 px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
+        <main className="px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
           <div className="mx-auto max-w-7xl">
             <header className="mb-6 rounded-[28px] border border-white/60 bg-white/80 px-6 py-5 shadow-soft backdrop-blur">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
