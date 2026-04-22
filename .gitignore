@@ -1,0 +1,9 @@
+node_modules/
+dist/
+release/
+backend/storage/base-cache.json
+backend/storage/history.json
+backend/storage/uploads/
+dev.log
+.DS_Store
+Thumbs.db
