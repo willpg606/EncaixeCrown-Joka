@@ -12,6 +12,14 @@ let currentServerPort = preferredPort;
 let serverInstance;
 let startServer;
 
+function getStorageDir() {
+  if (isDev) {
+    return path.join(app.getPath('userData'), 'storage');
+  }
+
+  return path.join(path.dirname(process.execPath), 'storage');
+}
+
 function getAvailablePort(startPort) {
   return new Promise((resolve, reject) => {
     const tryPort = (port) => {
@@ -56,7 +64,7 @@ async function waitForServer(url, retries = 60) {
 async function createWindow() {
   if (!serverInstance) {
     currentServerPort = await getAvailablePort(preferredPort);
-    process.env.STORAGE_DIR = path.join(app.getPath('userData'), 'storage');
+    process.env.STORAGE_DIR = getStorageDir();
     if (!startServer) {
       ({ startServer } = await import('../backend/server.js'));
     }
