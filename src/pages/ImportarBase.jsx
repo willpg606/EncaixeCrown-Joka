@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
-import { criarBackup, getBaseStatus, restaurarBackup, uploadBase } from '../services/api';
+import { useEffect, useRef, useState } from 'react';
+import { criarBackup, getBaseStatus, restaurarBackup, restaurarBackupArquivo, uploadBase } from '../services/api';
 
 function ImportarBase() {
   const [arquivo, setArquivo] = useState(null);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const backupInputRef = useRef(null);
   const validacao = status?.validation;
   const backups = status?.backups?.items || [];
 
@@ -93,6 +94,45 @@ function ImportarBase() {
     }
   };
 
+  const handleBuscarBackup = () => {
+    backupInputRef.current?.click();
+  };
+
+  const handleRestoreBackupArquivo = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const confirmar = window.confirm(`Restaurar o backup externo ${file.name}? Os dados atuais do sistema serão substituídos.`);
+
+    if (!confirmar) {
+      event.target.value = '';
+      return;
+    }
+
+    setLoading(true);
+    setFeedback(null);
+
+    try {
+      const response = await restaurarBackupArquivo(file);
+      setFeedback({
+        type: 'success',
+        message: `${response.message} Arquivo restaurado: ${response.restored.fileName}`
+      });
+      await carregarStatus();
+    } catch (error) {
+      setFeedback({
+        type: 'error',
+        message: error.message || 'Não foi possível restaurar o backup selecionado.'
+      });
+    } finally {
+      event.target.value = '';
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <section className="card">
@@ -119,6 +159,16 @@ function ImportarBase() {
           <button className="btn-secondary" type="button" onClick={handleBackup} disabled={loading}>
             {loading ? 'Aguarde...' : 'Criar Backup'}
           </button>
+          <button className="btn-secondary" type="button" onClick={handleBuscarBackup} disabled={loading}>
+            {loading ? 'Aguarde...' : 'Buscar o Backup'}
+          </button>
+          <input
+            ref={backupInputRef}
+            type="file"
+            accept=".db"
+            className="hidden"
+            onChange={handleRestoreBackupArquivo}
+          />
         </div>
 
         {feedback && (

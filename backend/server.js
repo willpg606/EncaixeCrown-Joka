@@ -39,6 +39,18 @@ const upload = multer({
   }
 });
 
+const uploadBackup = multer({
+  dest: uploadsDir,
+  fileFilter: (_, file, cb) => {
+    if (file.originalname.toLowerCase().endsWith('.db')) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error('Envie um arquivo de backup .db válido.'));
+  }
+});
+
 const turnosValidos = new Set(['A', 'B', 'C', 'D', 'ADM']);
 const colunasBase = {
   id: ['ID', 'Id', 'id'],
@@ -676,6 +688,40 @@ app.post('/api/backup/restore', (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message || 'Não foi possível restaurar o backup.' });
+  }
+});
+
+app.post('/api/backup/restore-file', uploadBackup.single('file'), (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ message: 'Selecione um arquivo de backup .db para restaurar.' });
+    return;
+  }
+
+  try {
+    const restored = database.restoreBackupFromPath(req.file.path, req.file.originalname);
+    baseAtual = database.loadBase();
+    baseIndex = criarIndiceBase(baseAtual.rows);
+    historico = database.loadHistory();
+    configuracoes = database.loadSettings();
+
+    res.json({
+      message: 'Backup externo restaurado com sucesso.',
+      restored,
+      storage: {
+        type: 'sqlite',
+        path: database.dbPath
+      },
+      backups: {
+        directory: database.backupDir,
+        items: database.listBackups().slice(0, 10)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Não foi possível restaurar o backup externo.' });
+  } finally {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
   }
 });
 

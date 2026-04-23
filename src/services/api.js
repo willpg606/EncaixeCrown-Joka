@@ -45,6 +45,18 @@ export const restaurarBackup = async (fileName) => {
   return parseResponse(response);
 };
 
+export const restaurarBackupArquivo = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/api/backup/restore-file', {
+    method: 'POST',
+    body: formData
+  });
+
+  return parseResponse(response);
+};
+
 export const processarEncaixes = async (payload) => {
   const response = await fetch('/api/encaixes/process', {
     method: 'POST',

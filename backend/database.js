@@ -375,6 +375,37 @@ export function createDatabase({
     };
   };
 
+  const restoreBackupFromPath = (sourcePath, originalName = '') => {
+    const source = path.resolve(String(sourcePath || '').trim());
+
+    if (!source || !fs.existsSync(source)) {
+      throw new Error('O arquivo de backup selecionado não foi encontrado.');
+    }
+
+    const extension = path.extname(source).toLowerCase();
+
+    if (extension !== '.db') {
+      throw new Error('Selecione um arquivo de backup no formato .db.');
+    }
+
+    const fileName = path.basename(originalName || source);
+    const backupCopyName = `importado_${formatBackupStamp()}_${fileName}`;
+    const backupCopyPath = path.join(backupDir, backupCopyName);
+
+    db.close();
+    fs.copyFileSync(source, dbPath);
+    fs.copyFileSync(source, backupCopyPath);
+    db = new DatabaseSync(dbPath);
+    initializeDb(db);
+
+    return {
+      fileName,
+      path: source,
+      importedCopy: backupCopyPath,
+      restoredAt: new Date().toISOString()
+    };
+  };
+
   return {
     dbPath,
     backupDir,
@@ -386,6 +417,7 @@ export function createDatabase({
     saveSettings,
     createBackup,
     listBackups,
-    restoreBackup
+    restoreBackup,
+    restoreBackupFromPath
   };
 }

@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "start": "node backend/server.js",
     "desktop": "npm run build && electron .",
-    "dist:win": "npm run build && electron-builder --win portable"
+    "dist:win": "npm run build && electron-builder --win portable nsis",
+    "dist:win:portable": "npm run build && electron-builder --win portable",
+    "dist:win:setup": "npm run build && electron-builder --win nsis"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -63,8 +65,21 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CROWN ENCAIXES PRO"
     }
   }
 }
