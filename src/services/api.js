@@ -25,6 +25,26 @@ export const uploadBase = async (file) => {
   return parseResponse(response);
 };
 
+export const criarBackup = async () => {
+  const response = await fetch('/api/backup/create', {
+    method: 'POST'
+  });
+
+  return parseResponse(response);
+};
+
+export const restaurarBackup = async (fileName) => {
+  const response = await fetch('/api/backup/restore', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ fileName })
+  });
+
+  return parseResponse(response);
+};
+
 export const processarEncaixes = async (payload) => {
   const response = await fetch('/api/encaixes/process', {
     method: 'POST',

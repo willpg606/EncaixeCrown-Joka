@@ -629,8 +629,54 @@ app.get('/api/base/status', (_, res) => {
     storage: {
       type: 'sqlite',
       path: database.dbPath
+    },
+    backups: {
+      directory: database.backupDir,
+      items: database.listBackups().slice(0, 10)
     }
   });
+});
+
+app.post('/api/backup/create', (_, res) => {
+  const backup = database.createBackup();
+
+  res.json({
+    message: 'Backup criado com sucesso.',
+    backup,
+    backups: database.listBackups().slice(0, 10)
+  });
+});
+
+app.post('/api/backup/restore', (req, res) => {
+  const fileName = String(req.body?.fileName || '').trim();
+
+  if (!fileName) {
+    res.status(400).json({ message: 'Informe o backup que deve ser restaurado.' });
+    return;
+  }
+
+  try {
+    const restored = database.restoreBackup(fileName);
+    baseAtual = database.loadBase();
+    baseIndex = criarIndiceBase(baseAtual.rows);
+    historico = database.loadHistory();
+    configuracoes = database.loadSettings();
+
+    res.json({
+      message: 'Backup restaurado com sucesso.',
+      restored,
+      storage: {
+        type: 'sqlite',
+        path: database.dbPath
+      },
+      backups: {
+        directory: database.backupDir,
+        items: database.listBackups().slice(0, 10)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Não foi possível restaurar o backup.' });
+  }
 });
 
 app.get('/api/solicitantes', (_, res) => {

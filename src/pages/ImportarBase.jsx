@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getBaseStatus, uploadBase } from '../services/api';
+import { criarBackup, getBaseStatus, restaurarBackup, uploadBase } from '../services/api';
 
 function ImportarBase() {
   const [arquivo, setArquivo] = useState(null);
@@ -7,6 +7,7 @@ function ImportarBase() {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const validacao = status?.validation;
+  const backups = status?.backups?.items || [];
 
   const carregarStatus = async () => {
     const response = await getBaseStatus();
@@ -44,6 +45,54 @@ function ImportarBase() {
     }
   };
 
+  const handleBackup = async () => {
+    setLoading(true);
+    setFeedback(null);
+
+    try {
+      const response = await criarBackup();
+      setFeedback({
+        type: 'success',
+        message: `${response.message} Arquivo: ${response.backup.fileName}`
+      });
+      await carregarStatus();
+    } catch (error) {
+      setFeedback({
+        type: 'error',
+        message: error.message || 'Não foi possível criar o backup.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestoreBackup = async (fileName) => {
+    const confirmar = window.confirm(`Restaurar o backup ${fileName}? Os dados atuais do sistema serão substituídos.`);
+
+    if (!confirmar) {
+      return;
+    }
+
+    setLoading(true);
+    setFeedback(null);
+
+    try {
+      const response = await restaurarBackup(fileName);
+      setFeedback({
+        type: 'success',
+        message: `${response.message} Arquivo restaurado: ${response.restored.fileName}`
+      });
+      await carregarStatus();
+    } catch (error) {
+      setFeedback({
+        type: 'error',
+        message: error.message || 'Não foi possível restaurar o backup.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <section className="card">
@@ -66,6 +115,9 @@ function ImportarBase() {
         <div className="mt-6 flex gap-3">
           <button className="btn-primary" type="button" onClick={handleSubmit} disabled={loading}>
             {loading ? 'Importando...' : 'Importar Base'}
+          </button>
+          <button className="btn-secondary" type="button" onClick={handleBackup} disabled={loading}>
+            {loading ? 'Aguarde...' : 'Criar Backup'}
           </button>
         </div>
 
@@ -127,6 +179,12 @@ function ImportarBase() {
             )}
           </div>
           <div className="rounded-2xl bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Pasta de backups</p>
+            <p className="mt-2 break-all text-xs font-semibold text-slate-900">
+              {status?.backups?.directory || 'Ainda não disponível'}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Última importação</p>
             <p className="mt-2 text-sm font-semibold text-slate-900">
               {status?.importedAt ? new Date(status.importedAt).toLocaleString('pt-BR') : 'Ainda não importada'}
@@ -165,6 +223,37 @@ function ImportarBase() {
               </div>
             </div>
           )}
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Últimos backups</p>
+
+            <div className="mt-3 space-y-2">
+              {backups.length === 0 && (
+                <div className="rounded-xl bg-white/70 px-3 py-2 text-sm text-slate-500">
+                  Nenhum backup criado ainda.
+                </div>
+              )}
+
+              {backups.map((item) => (
+                <div key={item.path} className="rounded-xl bg-white/80 px-3 py-2">
+                  <p className="text-sm font-semibold text-slate-900">{item.fileName}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {new Date(item.createdAt).toLocaleString('pt-BR')} • {(item.size / 1024).toFixed(1)} KB
+                  </p>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      className="rounded-full bg-amber-100 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-200"
+                      onClick={() => handleRestoreBackup(item.fileName)}
+                      disabled={loading}
+                    >
+                      Restaurar backup
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
     </div>

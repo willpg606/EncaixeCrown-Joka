@@ -38,70 +38,72 @@ export function createDatabase({
   fs.mkdirSync(storageDir, { recursive: true });
 
   const dbPath = path.join(storageDir, 'crown-encaixes-pro.db');
-  const db = new Database(dbPath);
+  const backupDir = path.join(storageDir, 'backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  const initializeDb = (database) => {
+    database.pragma('journal_mode = DELETE');
+    database.pragma('foreign_keys = ON');
 
-  db.pragma('journal_mode = DELETE');
-  db.pragma('foreign_keys = ON');
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS metadata (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    );
+      CREATE TABLE IF NOT EXISTS base_rows (
+        id TEXT PRIMARY KEY,
+        rota TEXT,
+        horarioEmbarque TEXT,
+        pontoEmbarque TEXT,
+        funcionario TEXT,
+        nomeBusca TEXT,
+        nomeExibicao TEXT,
+        turno TEXT,
+        nomeOriginal TEXT
+      );
 
-    CREATE TABLE IF NOT EXISTS base_rows (
-      id TEXT PRIMARY KEY,
-      rota TEXT,
-      horarioEmbarque TEXT,
-      pontoEmbarque TEXT,
-      funcionario TEXT,
-      nomeBusca TEXT,
-      nomeExibicao TEXT,
-      turno TEXT,
-      nomeOriginal TEXT
-    );
+      CREATE TABLE IF NOT EXISTS history_lots (
+        id TEXT PRIMARY KEY,
+        createdAt TEXT NOT NULL,
+        solicitante TEXT NOT NULL,
+        dataEncaixe TEXT,
+        datasEncaixe TEXT,
+        dataPadrao TEXT,
+        rawInput TEXT,
+        totalProcessados INTEGER NOT NULL,
+        totalErros INTEGER NOT NULL
+      );
 
-    CREATE TABLE IF NOT EXISTS history_lots (
-      id TEXT PRIMARY KEY,
-      createdAt TEXT NOT NULL,
-      solicitante TEXT NOT NULL,
-      dataEncaixe TEXT,
-      datasEncaixe TEXT,
-      dataPadrao TEXT,
-      rawInput TEXT,
-      totalProcessados INTEGER NOT NULL,
-      totalErros INTEGER NOT NULL
-    );
+      CREATE TABLE IF NOT EXISTS history_results (
+        id TEXT PRIMARY KEY,
+        loteId TEXT NOT NULL,
+        status TEXT NOT NULL,
+        dataEncaixe TEXT,
+        colaborador TEXT NOT NULL,
+        turnoEncaixe TEXT,
+        horarioEmbarque TEXT,
+        pontoEmbarque TEXT,
+        rota TEXT,
+        solicitante TEXT,
+        FOREIGN KEY (loteId) REFERENCES history_lots(id) ON DELETE CASCADE
+      );
+    `);
+  };
 
-    CREATE TABLE IF NOT EXISTS history_results (
-      id TEXT PRIMARY KEY,
-      loteId TEXT NOT NULL,
-      status TEXT NOT NULL,
-      dataEncaixe TEXT,
-      colaborador TEXT NOT NULL,
-      turnoEncaixe TEXT,
-      horarioEmbarque TEXT,
-      pontoEmbarque TEXT,
-      rota TEXT,
-      solicitante TEXT,
-      FOREIGN KEY (loteId) REFERENCES history_lots(id) ON DELETE CASCADE
-    );
-  `);
-
-  const selectMetadata = db.prepare('SELECT value FROM metadata WHERE key = ?');
-  const upsertMetadata = db.prepare(`
-    INSERT INTO metadata (key, value)
-    VALUES (?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value
-  `);
+  let db = new Database(dbPath);
+  initializeDb(db);
 
   const getMetadata = (key, fallback = null) => {
-    const row = selectMetadata.get(key);
+    const row = db.prepare('SELECT value FROM metadata WHERE key = ?').get(key);
     return row ? row.value : fallback;
   };
 
   const setMetadata = (key, value) => {
-    upsertMetadata.run(key, value);
+    db.prepare(`
+      INSERT INTO metadata (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(key, value);
   };
 
   const loadBase = () => ({
@@ -248,6 +250,12 @@ export function createDatabase({
     setMetadata('settings', JSON.stringify(settings));
   };
 
+  const reopenDb = () => {
+    db.close();
+    db = new Database(dbPath);
+    initializeDb(db);
+  };
+
   const migrateJsonIfNeeded = () => {
     const migrationDone = getMetadata('migration.json_to_sqlite.done', '');
 
@@ -293,13 +301,75 @@ export function createDatabase({
 
   migrateJsonIfNeeded();
 
+  const formatBackupStamp = () => {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+  };
+
+  const createBackup = () => {
+    const fileName = `crown-encaixes-pro-backup_${formatBackupStamp()}.db`;
+    const destination = path.join(backupDir, fileName);
+
+    db.exec('PRAGMA optimize');
+    fs.copyFileSync(dbPath, destination);
+
+    return {
+      fileName,
+      path: destination,
+      createdAt: new Date().toISOString(),
+      size: fs.statSync(destination).size
+    };
+  };
+
+  const listBackups = () =>
+    fs
+      .readdirSync(backupDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.db'))
+      .map((entry) => {
+        const fullPath = path.join(backupDir, entry.name);
+        const stats = fs.statSync(fullPath);
+
+        return {
+          fileName: entry.name,
+          path: fullPath,
+          createdAt: stats.mtime.toISOString(),
+          size: stats.size
+        };
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const restoreBackup = (fileName) => {
+    const safeName = path.basename(String(fileName || '').trim());
+    const source = path.join(backupDir, safeName);
+
+    if (!safeName || !fs.existsSync(source)) {
+      throw new Error('Backup selecionado não foi encontrado.');
+    }
+
+    db.close();
+    fs.copyFileSync(source, dbPath);
+    db = new Database(dbPath);
+    initializeDb(db);
+
+    return {
+      fileName: safeName,
+      path: source,
+      restoredAt: new Date().toISOString()
+    };
+  };
+
   return {
     dbPath,
+    backupDir,
     loadBase,
     saveBase,
     loadHistory,
     saveHistory,
     loadSettings,
-    saveSettings
+    saveSettings,
+    createBackup,
+    listBackups,
+    restoreBackup
   };
 }
