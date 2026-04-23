@@ -168,6 +168,17 @@ function nomeArquivoPadrao(contexto = {}, extensao = 'xlsx') {
   return `${base}.${extensao}`;
 }
 
+function obterRotuloDataHistorico(lote) {
+  const datas = [...new Set((lote?.datasEncaixe || []).filter(Boolean))].sort();
+
+  if (datas.length > 1) {
+    return `${formatarDataBR(datas[0]).replaceAll('/', '-')}-a-${formatarDataBR(datas[datas.length - 1]).replaceAll('/', '-')}`;
+  }
+
+  const dataBase = lote?.dataEncaixe || lote?.dataPadrao || datas[0] || '';
+  return formatarDataBR(dataBase).replaceAll('/', '-') || 'encaixe';
+}
+
 export function exportarResultadosExcel(resultados = [], contexto = {}) {
   const rows = montarRowsExcel(resultados);
   const resumo = obterResumoExportacao(resultados, contexto);
@@ -306,14 +317,12 @@ export function exportarHistoricoPdf(lote) {
     return;
   }
 
-  const sufixoData =
-    (lote.datasEncaixe?.length > 1 ? 'multiplas-datas' : formatarDataBR(lote.dataEncaixe || lote.dataPadrao || '').replaceAll('/', '-')) ||
-    'encaixe';
+  const sufixoSolicitante = criarNomeSeguro(lote?.solicitante || 'solicitante');
 
   gerarPdfOperacional({
     resultados: lote.resultados,
     titulo: `Solicitacao de ${lote.solicitante}`,
     subtitulo: `${lote.datasEncaixe?.length > 1 ? 'Multiplas datas' : formatarDataBR(lote.dataEncaixe || lote.dataPadrao || '')} • ${lote.totalProcessados} processados`,
-    arquivo: `historico-${sufixoData}.pdf`
+    arquivo: `Encaixes-${sufixoSolicitante}.pdf`
   });
 }
