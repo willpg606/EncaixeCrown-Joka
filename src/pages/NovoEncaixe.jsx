@@ -204,6 +204,7 @@ function NovoEncaixe() {
           onCopy={handleCopy}
           onExportExcel={handleExport}
           onExportPdf={handleExportPdf}
+          cardTitle="Envio Dados"
         />
       </div>
     </div>

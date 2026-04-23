@@ -1,13 +1,13 @@
 import { formatarDataBR, formatarHorario } from '../utils/formatar';
 import { obterClasseTurno } from '../utils/turnos';
 
-function TabelaResultado({ resultados, loading, onExportExcel, onExportPdf, onCopy }) {
+function TabelaResultado({ resultados, loading, onExportExcel, onExportPdf, onCopy, cardTitle = 'Resultado' }) {
   return (
     <section className="card">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-medium text-brand-600">Card 3</p>
-          <h3 className="text-xl font-semibold text-ink">Resultado</h3>
+          <h3 className="text-xl font-semibold text-ink">{cardTitle}</h3>
           <p className="mt-2 text-sm text-slate-500">
             Tabela operacional pronta para conferência, cópia e exportação.
           </p>

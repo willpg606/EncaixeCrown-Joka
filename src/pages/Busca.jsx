@@ -36,24 +36,40 @@ function ResumoLista({ titulo, itens, emptyText }) {
 
 function Busca() {
   const turnos = ['', 'A', 'B', 'C', 'D', 'ADM'];
-  const [dataBusca, setDataBusca] = useState(new Date().toISOString().split('T')[0]);
+  const hoje = new Date().toISOString().split('T')[0];
+  const [tipoBusca, setTipoBusca] = useState('dia');
+  const [dataBusca, setDataBusca] = useState(hoje);
+  const [dataInicial, setDataInicial] = useState(hoje);
+  const [dataFinal, setDataFinal] = useState(hoje);
   const [turnoBusca, setTurnoBusca] = useState('');
   const [loading, setLoading] = useState(false);
   const [resultados, setResultados] = useState([]);
   const [resumo, setResumo] = useState(null);
   const [feedback, setFeedback] = useState(null);
 
+  const textoReferencia = tipoBusca === 'periodo'
+    ? `${formatarDataBR(dataInicial)} até ${formatarDataBR(dataFinal)}`
+    : formatarDataBR(dataBusca);
+
   const handleBuscar = async () => {
     setLoading(true);
     setFeedback(null);
 
     try {
-      const response = await buscarPorData(dataBusca, turnoBusca);
+      const response = await buscarPorData({
+        tipo: tipoBusca,
+        data: dataBusca,
+        dataInicial,
+        dataFinal,
+        turno: turnoBusca
+      });
       setResultados(response.resultados || []);
       setResumo(response);
       setFeedback({
         type: 'success',
-        message: `${response.totalResultados} encaixes encontrados em ${formatarDataBR(response.data)}${turnoBusca ? ` para o turno ${turnoBusca}` : ''}.`
+        message:
+          `${response.totalResultados} encaixes encontrados em ${textoReferencia}` +
+          `${turnoBusca ? ` para o turno ${turnoBusca}` : ''}.`
       });
     } catch (error) {
       setResultados([]);
@@ -70,10 +86,13 @@ function Busca() {
   const handleExportExcel = () => {
     exportarResultadosExcel(resultados, {
       titulo: 'CROWN ENCAIXES PRO',
-      subtitulo: 'Busca unificada por data',
-      dataReferencia: formatarDataBR(dataBusca),
+      subtitulo: tipoBusca === 'periodo' ? 'Busca unificada por período' : 'Busca unificada por data',
+      dataReferencia: textoReferencia,
       solicitante: resumo?.resumoDia?.porSolicitante?.length === 1 ? resumo.resumoDia.porSolicitante[0].chave : 'Múltiplos solicitantes',
-      nomeArquivo: `busca-${dataBusca}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
+      nomeArquivo:
+        tipoBusca === 'periodo'
+          ? `busca-${dataInicial}-${dataFinal}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
+          : `busca-${dataBusca}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
     });
     setFeedback({ type: 'success', message: 'Arquivo Excel gerado com sucesso.' });
   };
@@ -81,10 +100,20 @@ function Busca() {
   const handleExportPdf = () => {
     exportarResultadosPdf(resultados, {
       titulo: 'CROWN ENCAIXES PRO',
-      subtitulo: turnoBusca ? `Busca unificada por data • Turno ${turnoBusca}` : 'Busca unificada por data',
-      dataReferencia: formatarDataBR(dataBusca),
+      subtitulo:
+        tipoBusca === 'periodo'
+          ? turnoBusca
+            ? `Busca unificada por período • Turno ${turnoBusca}`
+            : 'Busca unificada por período'
+          : turnoBusca
+            ? `Busca unificada por data • Turno ${turnoBusca}`
+            : 'Busca unificada por data',
+      dataReferencia: textoReferencia,
       solicitante: resumo?.resumoDia?.porSolicitante?.length === 1 ? resumo.resumoDia.porSolicitante[0].chave : 'Múltiplos solicitantes',
-      nomeArquivo: `busca-${dataBusca}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
+      nomeArquivo:
+        tipoBusca === 'periodo'
+          ? `busca-${dataInicial}-${dataFinal}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
+          : `busca-${dataBusca}${turnoBusca ? `-${turnoBusca.toLowerCase()}` : ''}`
     });
     setFeedback({ type: 'success', message: 'Arquivo PDF gerado com sucesso.' });
   };
@@ -114,7 +143,7 @@ function Busca() {
             <p className="text-sm font-medium text-brand-600">Busca</p>
             <h3 className="text-2xl font-semibold text-ink">Busca unificada por data</h3>
             <p className="mt-2 text-sm text-slate-500">
-              Consulte todos os encaixes registrados para o dia solicitado, mesmo quando vieram de pedidos diferentes.
+              Consulte encaixes por dia específico ou por um período específico, mesmo quando vieram de pedidos diferentes.
             </p>
           </div>
 
@@ -132,7 +161,38 @@ function Busca() {
           )}
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-[260px_220px_auto]">
+        <div className="mt-6 grid gap-4 md:grid-cols-[220px_1fr_220px_auto]">
+          <label className="text-sm font-medium text-slate-700">
+            Tipo de busca
+            <select className="field" value={tipoBusca} onChange={(event) => setTipoBusca(event.target.value)}>
+              <option value="dia">Dia específico</option>
+              <option value="periodo">Período específico</option>
+            </select>
+          </label>
+
+          {tipoBusca === 'periodo' ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-slate-700">
+                Data inicial
+                <input
+                  className="field"
+                  type="date"
+                  value={dataInicial}
+                  onChange={(event) => setDataInicial(event.target.value)}
+                />
+              </label>
+
+              <label className="text-sm font-medium text-slate-700">
+                Data final
+                <input
+                  className="field"
+                  type="date"
+                  value={dataFinal}
+                  onChange={(event) => setDataFinal(event.target.value)}
+                />
+              </label>
+            </div>
+          ) : (
           <label className="text-sm font-medium text-slate-700">
             Data solicitada
             <input
@@ -142,6 +202,7 @@ function Busca() {
               onChange={(event) => setDataBusca(event.target.value)}
             />
           </label>
+          )}
 
           <label className="text-sm font-medium text-slate-700">
             Turno
@@ -168,7 +229,9 @@ function Busca() {
             <div>
               <p className="text-sm font-medium text-brand-600">Resumo do dia</p>
               <h3 className="text-2xl font-semibold text-ink">
-                Visão consolidada de {formatarDataBR(resumo.data)}
+                Visão consolidada de {resumo.tipo === 'periodo'
+                  ? `${formatarDataBR(resumo.dataInicial)} até ${formatarDataBR(resumo.dataFinal)}`
+                  : formatarDataBR(resumo.data)}
               </h3>
               <p className="mt-2 text-sm text-slate-500">
                 Totais organizados para conferência rápida por turno, rota e solicitante.

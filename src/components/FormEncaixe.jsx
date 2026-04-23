@@ -40,7 +40,7 @@ function FormEncaixe({
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-brand-600">Card 1</p>
-            <h3 className="text-xl font-semibold text-ink">Dados</h3>
+            <h3 className="text-xl font-semibold text-ink">Solicitação</h3>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
             obrigatório
@@ -81,7 +81,7 @@ function FormEncaixe({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-sm font-medium text-brand-600">Card 2</p>
-            <h3 className="text-xl font-semibold text-ink">Entrada em Lote</h3>
+            <h3 className="text-xl font-semibold text-ink">Encaixes</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
               Cole uma linha por colaborador no formato <strong>Nome - Turno</strong> ou <strong>dd/mm/aaaa | Nome - Turno</strong>. Tambem pode colar linhas vindas do Excel com colunas.
             </p>

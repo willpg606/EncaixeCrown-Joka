@@ -87,8 +87,15 @@ export const buscarColaboradores = async (query) => {
   return parseResponse(response);
 };
 
-export const buscarPorData = async (data, turno = '') => {
-  const query = new URLSearchParams({ data });
+export const buscarPorData = async ({ tipo = 'dia', data = '', dataInicial = '', dataFinal = '', turno = '' }) => {
+  const query = new URLSearchParams({ tipo });
+
+  if (tipo === 'periodo') {
+    query.set('dataInicial', dataInicial);
+    query.set('dataFinal', dataFinal);
+  } else {
+    query.set('data', data);
+  }
 
   if (turno) {
     query.set('turno', turno);

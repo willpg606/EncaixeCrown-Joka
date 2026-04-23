@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 
 const readJsonFile = (filePath, fallback) => {
   try {
@@ -40,9 +40,25 @@ export function createDatabase({
   const dbPath = path.join(storageDir, 'crown-encaixes-pro.db');
   const backupDir = path.join(storageDir, 'backups');
   fs.mkdirSync(backupDir, { recursive: true });
+
+  const createTransaction = (work) => (payload) => {
+    db.exec('BEGIN IMMEDIATE');
+
+    try {
+      const result = work(payload);
+      db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  };
+
   const initializeDb = (database) => {
-    database.pragma('journal_mode = DELETE');
-    database.pragma('foreign_keys = ON');
+    database.exec(`
+      PRAGMA journal_mode = DELETE;
+      PRAGMA foreign_keys = ON;
+    `);
 
     database.exec(`
       CREATE TABLE IF NOT EXISTS metadata (
@@ -90,7 +106,7 @@ export function createDatabase({
     `);
   };
 
-  let db = new Database(dbPath);
+  let db = new DatabaseSync(dbPath);
   initializeDb(db);
 
   const getMetadata = (key, fallback = null) => {
@@ -113,7 +129,7 @@ export function createDatabase({
     validation: parseJson(getMetadata('base.validation', ''), validacaoBaseVazia)
   });
 
-  const saveBaseTransaction = db.transaction((base) => {
+  const saveBaseTransaction = createTransaction((base) => {
     db.prepare('DELETE FROM base_rows').run();
 
     const insertRow = db.prepare(`
@@ -182,7 +198,7 @@ export function createDatabase({
     }));
   };
 
-  const saveHistoryTransaction = db.transaction((history) => {
+  const saveHistoryTransaction = createTransaction((history) => {
     db.prepare('DELETE FROM history_results').run();
     db.prepare('DELETE FROM history_lots').run();
 
@@ -252,7 +268,7 @@ export function createDatabase({
 
   const reopenDb = () => {
     db.close();
-    db = new Database(dbPath);
+    db = new DatabaseSync(dbPath);
     initializeDb(db);
   };
 
@@ -349,7 +365,7 @@ export function createDatabase({
 
     db.close();
     fs.copyFileSync(source, dbPath);
-    db = new Database(dbPath);
+    db = new DatabaseSync(dbPath);
     initializeDb(db);
 
     return {

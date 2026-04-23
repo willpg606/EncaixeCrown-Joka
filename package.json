@@ -1,6 +1,6 @@
 {
   "name": "crown-encaixes-pro",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "main": "electron/main.js",
@@ -15,7 +15,6 @@
     "dist:win": "npm run build && electron-builder --win portable"
   },
   "dependencies": {
-    "better-sqlite3": "^12.9.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jspdf": "^3.0.3",

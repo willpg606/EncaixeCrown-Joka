@@ -1078,26 +1078,51 @@ app.get('/api/history', (_, res) => {
 });
 
 app.get('/api/busca', (req, res) => {
+  const tipoBusca = String(req.query.tipo || 'dia').trim().toLowerCase() === 'periodo' ? 'periodo' : 'dia';
   const dataSolicitada = normalizarData(String(req.query.data || ''));
+  const dataInicial = normalizarData(String(req.query.dataInicial || ''));
+  const dataFinal = normalizarData(String(req.query.dataFinal || ''));
   const turnoSolicitado = String(req.query.turno || '').trim().toUpperCase();
 
-  if (!dataSolicitada) {
+  if (tipoBusca === 'periodo') {
+    if (!dataInicial || !dataFinal) {
+      res.status(400).json({ message: 'Informe uma data inicial e uma data final válidas para a busca por período.' });
+      return;
+    }
+
+    if (dataInicial > dataFinal) {
+      res.status(400).json({ message: 'A data inicial não pode ser maior que a data final.' });
+      return;
+    }
+  } else if (!dataSolicitada) {
     res.status(400).json({ message: 'Informe uma data válida para a busca.' });
     return;
   }
+
+  const correspondeAoFiltro = (resultado) => {
+    if (!resultado.dataEncaixe) {
+      return false;
+    }
+
+    if (tipoBusca === 'periodo') {
+      return resultado.dataEncaixe >= dataInicial && resultado.dataEncaixe <= dataFinal;
+    }
+
+    return resultado.dataEncaixe === dataSolicitada;
+  };
 
   const lotesRelacionados = historico
     .map((item) => ({
       ...item,
       rawInput: item.rawInput || montarRawInputDosResultados(item.resultados)
     }))
-    .filter((item) => item.resultados?.some((resultado) => resultado.dataEncaixe === dataSolicitada));
+    .filter((item) => item.resultados?.some((resultado) => correspondeAoFiltro(resultado)));
 
   const resultados = lotesRelacionados.flatMap((item) =>
     item.resultados
       .filter(
         (resultado) =>
-          resultado.dataEncaixe === dataSolicitada &&
+          correspondeAoFiltro(resultado) &&
           (!turnoSolicitado || resultado.turnoEncaixe === turnoSolicitado)
       )
       .map((resultado) => ({
@@ -1124,7 +1149,10 @@ app.get('/api/busca', (req, res) => {
   });
 
   res.json({
+    tipo: tipoBusca,
     data: dataSolicitada,
+    dataInicial,
+    dataFinal,
     totalResultados: resultados.length,
     totalLotes: lotesRelacionados.length,
     resumoDia: criarResumoDoDia(resultados),
