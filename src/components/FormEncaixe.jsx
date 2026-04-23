@@ -47,7 +47,7 @@ function FormEncaixe({
           </span>
         </div>
 
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
+        <div className="mt-6">
           <label className="text-sm font-medium text-slate-700">
             Solicitante
             <input
@@ -72,24 +72,6 @@ function FormEncaixe({
             </select>
             <span className="mt-2 block text-xs font-normal text-slate-400">
               Lista em ordem alfabética com filtro rápido. {form.solicitante ? `Selecionado: ${form.solicitante}.` : 'Escolha um solicitante cadastrado no sistema.'}
-            </span>
-          </label>
-
-          <label className="text-sm font-medium text-slate-700">
-            Data do Encaixe
-            <input
-              className="field"
-              type="date"
-              name="dataEncaixe"
-              max="2100-12-31"
-              value={form.dataEncaixe}
-              onChange={onChange}
-            />
-            <span className="mt-2 block text-xs font-normal text-slate-400">
-              Use como data padrão do lote. Quando precisar misturar datas, informe na linha: `dd/mm/aaaa | Nome - Turno`.
-            </span>
-            <span className="mt-2 block text-xs font-semibold text-brand-600">
-              {descreverEscalaPorData(form.dataEncaixe)}
             </span>
           </label>
         </div>
@@ -128,7 +110,7 @@ function FormEncaixe({
             <div className="text-xs uppercase tracking-[0.22em] text-slate-400">assertivo</div>
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_220px]">
+          <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_220px_260px]">
             <input
               className="field mt-0"
               type="text"
@@ -148,6 +130,24 @@ function FormEncaixe({
               </select>
               <span className="mt-2 block text-xs font-normal text-slate-400">
                 Lista liberada automaticamente conforme a escala da data escolhida.
+              </span>
+            </label>
+
+            <label className="text-sm font-medium text-slate-700">
+              Data do Encaixe
+              <input
+                className="field mt-2"
+                type="date"
+                name="dataEncaixe"
+                max="2100-12-31"
+                value={form.dataEncaixe}
+                onChange={onChange}
+              />
+              <span className="mt-2 block text-xs font-normal text-slate-400">
+                Use como data padrão do lote. Quando precisar misturar datas, informe na linha: `dd/mm/aaaa | Nome - Turno`.
+              </span>
+              <span className="mt-2 block text-xs font-semibold text-brand-600">
+                {descreverEscalaPorData(form.dataEncaixe)}
               </span>
             </label>
           </div>
