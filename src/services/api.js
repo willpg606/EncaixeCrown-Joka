@@ -119,3 +119,28 @@ export const excluirSolicitante = async (nome) => {
 
   return parseResponse(response);
 };
+
+export const getOutlookConfig = async () => {
+  const response = await fetch('/api/outlook/config');
+  return parseResponse(response);
+};
+
+export const salvarOutlookConfig = async (payload) => {
+  const response = await fetch('/api/outlook/config', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  return parseResponse(response);
+};
+
+export const validarOutlookConfig = async () => {
+  const response = await fetch('/api/outlook/validate', {
+    method: 'POST'
+  });
+
+  return parseResponse(response);
+};

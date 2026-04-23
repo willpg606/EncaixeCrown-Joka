@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import XLSX from 'xlsx';
+import { createDatabase } from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,23 +78,6 @@ const solicitantesPadrao = [
   'Renato Martins',
   'Vinicius Souza'
 ];
-
-const readJsonFile = (filePath, fallback) => {
-  try {
-    if (!fs.existsSync(filePath)) {
-      return fallback;
-    }
-
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-};
-
-const writeJsonFile = (filePath, data) => {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-};
 
 const obterCampo = (row, aliases = []) => {
   for (const alias of aliases) {
@@ -298,18 +282,22 @@ const parseInput = (rawInput = '', dataPadrao = '') => {
   });
 };
 
-const carregarBase = () =>
-  readJsonFile(baseCachePath, {
-    rows: [],
-    importedAt: null,
-    fileName: '',
-    validation: validacaoBaseVazia
-  });
-const carregarHistorico = () => readJsonFile(historyPath, []);
-const carregarConfiguracoes = () =>
-  readJsonFile(settingsPath, {
-    solicitantes: solicitantesPadrao
-  });
+const defaultSettings = {
+  solicitantes: solicitantesPadrao,
+  outlook: {
+    enabled: false,
+    tenantId: '',
+    clientId: '',
+    clientSecret: '',
+    mailbox: '',
+    folder: 'Caixa de Entrada',
+    subjectFilter: 'Encaixe',
+    senderFilter: '',
+    extractMode: 'body',
+    markAsProcessed: false,
+    lastValidatedAt: null
+  }
+};
 
 const criarIndiceBase = (rows = []) => {
   const index = new Map();
@@ -321,10 +309,19 @@ const criarIndiceBase = (rows = []) => {
   return index;
 };
 
-let baseAtual = carregarBase();
+const database = createDatabase({
+  storageDir,
+  baseCachePath,
+  historyPath,
+  settingsPath,
+  validacaoBaseVazia,
+  defaultSettings
+});
+
+let baseAtual = database.loadBase();
 let baseIndex = criarIndiceBase(baseAtual.rows);
-let historico = carregarHistorico();
-let configuracoes = carregarConfiguracoes();
+let historico = database.loadHistory();
+let configuracoes = database.loadSettings();
 
 const buscarNaBase = (chave) => {
   const item = baseIndex.get(chave);
@@ -438,6 +435,36 @@ const criarResumoEncaixe = ({ id = uuidv4(), createdAt = new Date().toISOString(
 const listarSolicitantes = () =>
   [...new Set((configuracoes.solicitantes || []).map((item) => String(item || '').trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+const obterOutlookConfig = () => ({
+  enabled: Boolean(configuracoes.outlook?.enabled),
+  tenantId: String(configuracoes.outlook?.tenantId || ''),
+  clientId: String(configuracoes.outlook?.clientId || ''),
+  clientSecret: String(configuracoes.outlook?.clientSecret || ''),
+  mailbox: String(configuracoes.outlook?.mailbox || ''),
+  folder: String(configuracoes.outlook?.folder || 'Caixa de Entrada'),
+  subjectFilter: String(configuracoes.outlook?.subjectFilter || 'Encaixe'),
+  senderFilter: String(configuracoes.outlook?.senderFilter || ''),
+  extractMode: String(configuracoes.outlook?.extractMode || 'body'),
+  markAsProcessed: Boolean(configuracoes.outlook?.markAsProcessed),
+  lastValidatedAt: configuracoes.outlook?.lastValidatedAt || null
+});
+
+const resumirOutlookConfig = () => {
+  const config = obterOutlookConfig();
+
+  return {
+    ...config,
+    clientSecretConfigured: Boolean(config.clientSecret),
+    readyToConnect: Boolean(config.tenantId && config.clientId && config.clientSecret && config.mailbox),
+    pendingItems: [
+      !config.tenantId && 'ID do locatário',
+      !config.clientId && 'ID do aplicativo',
+      !config.clientSecret && 'Segredo do aplicativo',
+      !config.mailbox && 'Caixa de e-mail'
+    ].filter(Boolean)
+  };
+};
 
 const obterInconsistenciasBase = () => {
   const validation = baseAtual.validation || validacaoBaseVazia;
@@ -598,13 +625,78 @@ app.get('/api/base/status', (_, res) => {
     totalRegistros: baseAtual.rows.length,
     importedAt: baseAtual.importedAt,
     fileName: baseAtual.fileName,
-    validation: baseAtual.validation || validacaoBaseVazia
+    validation: baseAtual.validation || validacaoBaseVazia,
+    storage: {
+      type: 'sqlite',
+      path: database.dbPath
+    }
   });
 });
 
 app.get('/api/solicitantes', (_, res) => {
   res.json({
     solicitantes: listarSolicitantes()
+  });
+});
+
+app.get('/api/outlook/config', (_, res) => {
+  res.json({
+    outlook: resumirOutlookConfig()
+  });
+});
+
+app.put('/api/outlook/config', (req, res) => {
+  const body = req.body || {};
+
+  configuracoes = {
+    ...configuracoes,
+    outlook: {
+      ...obterOutlookConfig(),
+      enabled: Boolean(body.enabled),
+      tenantId: String(body.tenantId || '').trim(),
+      clientId: String(body.clientId || '').trim(),
+      clientSecret: String(body.clientSecret || '').trim(),
+      mailbox: String(body.mailbox || '').trim(),
+      folder: String(body.folder || 'Caixa de Entrada').trim() || 'Caixa de Entrada',
+      subjectFilter: String(body.subjectFilter || '').trim(),
+      senderFilter: String(body.senderFilter || '').trim(),
+      extractMode: String(body.extractMode || 'body').trim() || 'body',
+      markAsProcessed: Boolean(body.markAsProcessed)
+    }
+  };
+
+  database.saveSettings(configuracoes);
+
+  res.json({
+    message: 'Estrutura do Outlook salva com sucesso.',
+    outlook: resumirOutlookConfig()
+  });
+});
+
+app.post('/api/outlook/validate', (_, res) => {
+  const config = resumirOutlookConfig();
+
+  if (!config.readyToConnect) {
+    res.status(400).json({
+      message: `Integração ainda não pronta. Complete: ${config.pendingItems.join(', ')}.`,
+      outlook: config
+    });
+    return;
+  }
+
+  configuracoes = {
+    ...configuracoes,
+    outlook: {
+      ...obterOutlookConfig(),
+      lastValidatedAt: new Date().toISOString()
+    }
+  };
+  database.saveSettings(configuracoes);
+
+  res.json({
+    message: 'Estrutura pronta para conexão com Microsoft Graph. Falta apenas ativar as credenciais reais no ambiente.',
+    outlook: resumirOutlookConfig(),
+    nextStep: 'Registrar o aplicativo no Azure e conectar a autenticação Microsoft 365.'
   });
 });
 
@@ -627,7 +719,7 @@ app.post('/api/solicitantes', (req, res) => {
     ...configuracoes,
     solicitantes: [...listarSolicitantes(), nome]
   };
-  writeJsonFile(settingsPath, configuracoes);
+  database.saveSettings(configuracoes);
 
   res.json({
     message: 'Solicitante cadastrado com sucesso.',
@@ -666,7 +758,7 @@ app.put('/api/solicitantes/:nome', (req, res) => {
     ...configuracoes,
     solicitantes: lista
   };
-  writeJsonFile(settingsPath, configuracoes);
+  database.saveSettings(configuracoes);
 
   res.json({
     message: 'Solicitante atualizado com sucesso.',
@@ -688,7 +780,7 @@ app.delete('/api/solicitantes/:nome', (req, res) => {
     ...configuracoes,
     solicitantes: listaFiltrada
   };
-  writeJsonFile(settingsPath, configuracoes);
+  database.saveSettings(configuracoes);
 
   res.json({
     message: 'Solicitante removido com sucesso.',
@@ -883,7 +975,7 @@ app.post('/api/base/upload', upload.single('file'), (req, res) => {
     };
 
     baseIndex = criarIndiceBase(baseAtual.rows);
-    writeJsonFile(baseCachePath, baseAtual);
+    database.saveBase(baseAtual);
     fs.unlinkSync(req.file.path);
 
     res.json({
@@ -922,7 +1014,7 @@ app.post('/api/encaixes/process', (req, res) => {
   });
 
   historico = [resumo, ...historico].slice(0, 100);
-  writeJsonFile(historyPath, historico);
+  database.saveHistory(historico);
 
   res.json({
     ...resumo,
@@ -1025,7 +1117,7 @@ app.put('/api/history/:id', (req, res) => {
   });
 
   historico[indice] = atualizado;
-  writeJsonFile(historyPath, historico);
+  database.saveHistory(historico);
 
   res.json({
     ...atualizado,
@@ -1043,7 +1135,7 @@ app.delete('/api/history/:id', (req, res) => {
     return;
   }
 
-  writeJsonFile(historyPath, historico);
+  database.saveHistory(historico);
   res.json({ ok: true });
 });
 

@@ -1,0 +1,305 @@
+import fs from 'fs';
+import path from 'path';
+import Database from 'better-sqlite3';
+
+const readJsonFile = (filePath, fallback) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return fallback;
+    }
+
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+};
+
+const parseJson = (value, fallback) => {
+  if (!value) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+export function createDatabase({
+  storageDir,
+  baseCachePath,
+  historyPath,
+  settingsPath,
+  validacaoBaseVazia,
+  defaultSettings
+}) {
+  fs.mkdirSync(storageDir, { recursive: true });
+
+  const dbPath = path.join(storageDir, 'crown-encaixes-pro.db');
+  const db = new Database(dbPath);
+
+  db.pragma('journal_mode = DELETE');
+  db.pragma('foreign_keys = ON');
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS metadata (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS base_rows (
+      id TEXT PRIMARY KEY,
+      rota TEXT,
+      horarioEmbarque TEXT,
+      pontoEmbarque TEXT,
+      funcionario TEXT,
+      nomeBusca TEXT,
+      nomeExibicao TEXT,
+      turno TEXT,
+      nomeOriginal TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS history_lots (
+      id TEXT PRIMARY KEY,
+      createdAt TEXT NOT NULL,
+      solicitante TEXT NOT NULL,
+      dataEncaixe TEXT,
+      datasEncaixe TEXT,
+      dataPadrao TEXT,
+      rawInput TEXT,
+      totalProcessados INTEGER NOT NULL,
+      totalErros INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS history_results (
+      id TEXT PRIMARY KEY,
+      loteId TEXT NOT NULL,
+      status TEXT NOT NULL,
+      dataEncaixe TEXT,
+      colaborador TEXT NOT NULL,
+      turnoEncaixe TEXT,
+      horarioEmbarque TEXT,
+      pontoEmbarque TEXT,
+      rota TEXT,
+      solicitante TEXT,
+      FOREIGN KEY (loteId) REFERENCES history_lots(id) ON DELETE CASCADE
+    );
+  `);
+
+  const selectMetadata = db.prepare('SELECT value FROM metadata WHERE key = ?');
+  const upsertMetadata = db.prepare(`
+    INSERT INTO metadata (key, value)
+    VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `);
+
+  const getMetadata = (key, fallback = null) => {
+    const row = selectMetadata.get(key);
+    return row ? row.value : fallback;
+  };
+
+  const setMetadata = (key, value) => {
+    upsertMetadata.run(key, value);
+  };
+
+  const loadBase = () => ({
+    rows: db.prepare('SELECT * FROM base_rows ORDER BY nomeExibicao, funcionario, id').all(),
+    importedAt: getMetadata('base.importedAt', null),
+    fileName: getMetadata('base.fileName', ''),
+    validation: parseJson(getMetadata('base.validation', ''), validacaoBaseVazia)
+  });
+
+  const saveBaseTransaction = db.transaction((base) => {
+    db.prepare('DELETE FROM base_rows').run();
+
+    const insertRow = db.prepare(`
+      INSERT INTO base_rows (
+        id, rota, horarioEmbarque, pontoEmbarque, funcionario, nomeBusca, nomeExibicao, turno, nomeOriginal
+      ) VALUES (
+        @id, @rota, @horarioEmbarque, @pontoEmbarque, @funcionario, @nomeBusca, @nomeExibicao, @turno, @nomeOriginal
+      )
+    `);
+
+    for (const row of base.rows || []) {
+      insertRow.run({
+        id: row.id,
+        rota: row.rota || '',
+        horarioEmbarque: row.horarioEmbarque || '',
+        pontoEmbarque: row.pontoEmbarque || '',
+        funcionario: row.funcionario || '',
+        nomeBusca: row.nomeBusca || '',
+        nomeExibicao: row.nomeExibicao || '',
+        turno: row.turno || '',
+        nomeOriginal: row.nomeOriginal || ''
+      });
+    }
+
+    setMetadata('base.importedAt', base.importedAt || '');
+    setMetadata('base.fileName', base.fileName || '');
+    setMetadata('base.validation', JSON.stringify(base.validation || validacaoBaseVazia));
+  });
+
+  const saveBase = (base) => saveBaseTransaction(base);
+
+  const loadHistory = () => {
+    const lots = db
+      .prepare('SELECT * FROM history_lots ORDER BY datetime(createdAt) DESC, rowid DESC')
+      .all();
+    const results = db.prepare('SELECT * FROM history_results').all();
+    const resultsByLot = new Map();
+
+    for (const result of results) {
+      const list = resultsByLot.get(result.loteId) || [];
+      list.push({
+        id: result.id,
+        status: result.status,
+        dataEncaixe: result.dataEncaixe || '',
+        colaborador: result.colaborador,
+        turnoEncaixe: result.turnoEncaixe || '',
+        horarioEmbarque: result.horarioEmbarque || '',
+        pontoEmbarque: result.pontoEmbarque || '',
+        rota: result.rota || '',
+        solicitante: result.solicitante || ''
+      });
+      resultsByLot.set(result.loteId, list);
+    }
+
+    return lots.map((lot) => ({
+      id: lot.id,
+      createdAt: lot.createdAt,
+      solicitante: lot.solicitante,
+      dataEncaixe: lot.dataEncaixe || '',
+      datasEncaixe: parseJson(lot.datasEncaixe, []),
+      dataPadrao: lot.dataPadrao || '',
+      rawInput: lot.rawInput || '',
+      totalProcessados: lot.totalProcessados,
+      totalErros: lot.totalErros,
+      resultados: resultsByLot.get(lot.id) || []
+    }));
+  };
+
+  const saveHistoryTransaction = db.transaction((history) => {
+    db.prepare('DELETE FROM history_results').run();
+    db.prepare('DELETE FROM history_lots').run();
+
+    const insertLot = db.prepare(`
+      INSERT INTO history_lots (
+        id, createdAt, solicitante, dataEncaixe, datasEncaixe, dataPadrao, rawInput, totalProcessados, totalErros
+      ) VALUES (
+        @id, @createdAt, @solicitante, @dataEncaixe, @datasEncaixe, @dataPadrao, @rawInput, @totalProcessados, @totalErros
+      )
+    `);
+
+    const insertResult = db.prepare(`
+      INSERT INTO history_results (
+        id, loteId, status, dataEncaixe, colaborador, turnoEncaixe, horarioEmbarque, pontoEmbarque, rota, solicitante
+      ) VALUES (
+        @id, @loteId, @status, @dataEncaixe, @colaborador, @turnoEncaixe, @horarioEmbarque, @pontoEmbarque, @rota, @solicitante
+      )
+    `);
+
+    for (const lot of history || []) {
+      insertLot.run({
+        id: lot.id,
+        createdAt: lot.createdAt,
+        solicitante: lot.solicitante,
+        dataEncaixe: lot.dataEncaixe || '',
+        datasEncaixe: JSON.stringify(lot.datasEncaixe || []),
+        dataPadrao: lot.dataPadrao || '',
+        rawInput: lot.rawInput || '',
+        totalProcessados: lot.totalProcessados || 0,
+        totalErros: lot.totalErros || 0
+      });
+
+      for (const result of lot.resultados || []) {
+        insertResult.run({
+          id: result.id,
+          loteId: lot.id,
+          status: result.status,
+          dataEncaixe: result.dataEncaixe || '',
+          colaborador: result.colaborador,
+          turnoEncaixe: result.turnoEncaixe || '',
+          horarioEmbarque: result.horarioEmbarque || '',
+          pontoEmbarque: result.pontoEmbarque || '',
+          rota: result.rota || '',
+          solicitante: result.solicitante || ''
+        });
+      }
+    }
+  });
+
+  const saveHistory = (history) => saveHistoryTransaction(history);
+
+  const loadSettings = () => {
+    const raw = getMetadata('settings', '');
+    return {
+      ...defaultSettings,
+      ...parseJson(raw, {}),
+      outlook: {
+        ...defaultSettings.outlook,
+        ...parseJson(raw, {}).outlook
+      }
+    };
+  };
+
+  const saveSettings = (settings) => {
+    setMetadata('settings', JSON.stringify(settings));
+  };
+
+  const migrateJsonIfNeeded = () => {
+    const migrationDone = getMetadata('migration.json_to_sqlite.done', '');
+
+    if (migrationDone) {
+      return;
+    }
+
+    const baseCount = db.prepare('SELECT COUNT(*) as total FROM base_rows').get().total;
+    const lotCount = db.prepare('SELECT COUNT(*) as total FROM history_lots').get().total;
+    const settingsExists = Boolean(getMetadata('settings', ''));
+
+    if (baseCount === 0 && fs.existsSync(baseCachePath)) {
+      const legacyBase = readJsonFile(baseCachePath, {
+        rows: [],
+        importedAt: null,
+        fileName: '',
+        validation: validacaoBaseVazia
+      });
+      saveBase(legacyBase);
+    }
+
+    if (lotCount === 0 && fs.existsSync(historyPath)) {
+      const legacyHistory = readJsonFile(historyPath, []);
+      saveHistory(legacyHistory);
+    }
+
+    if (!settingsExists && fs.existsSync(settingsPath)) {
+      const legacySettings = readJsonFile(settingsPath, defaultSettings);
+      saveSettings({
+        ...defaultSettings,
+        ...legacySettings,
+        outlook: {
+          ...defaultSettings.outlook,
+          ...(legacySettings.outlook || {})
+        }
+      });
+    } else if (!settingsExists) {
+      saveSettings(defaultSettings);
+    }
+
+    setMetadata('migration.json_to_sqlite.done', new Date().toISOString());
+  };
+
+  migrateJsonIfNeeded();
+
+  return {
+    dbPath,
+    loadBase,
+    saveBase,
+    loadHistory,
+    saveHistory,
+    loadSettings,
+    saveSettings
+  };
+}

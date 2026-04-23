@@ -118,6 +118,15 @@ function ImportarBase() {
             <p className="mt-2 text-2xl font-semibold text-slate-900">{status?.totalRegistros || 0}</p>
           </div>
           <div className="rounded-2xl bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Armazenamento</p>
+            <p className="mt-2 text-sm font-semibold text-slate-900">
+              {status?.storage?.type ? status.storage.type.toUpperCase() : 'Local'}
+            </p>
+            {status?.storage?.path && (
+              <p className="mt-2 break-all text-xs text-slate-500">{status.storage.path}</p>
+            )}
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Última importação</p>
             <p className="mt-2 text-sm font-semibold text-slate-900">
               {status?.importedAt ? new Date(status.importedAt).toLocaleString('pt-BR') : 'Ainda não importada'}

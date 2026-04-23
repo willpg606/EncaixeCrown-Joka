@@ -6,6 +6,7 @@ import Historico from './pages/Historico';
 import Inconsistencias from './pages/Inconsistencias';
 import ImportarBase from './pages/ImportarBase';
 import NovoEncaixe from './pages/NovoEncaixe';
+import Outlook from './pages/Outlook';
 import Solicitantes from './pages/Solicitantes';
 
 const navigation = [
@@ -15,6 +16,7 @@ const navigation = [
   { label: 'Histórico', to: '/historico' },
   { label: 'Inconsistências', to: '/inconsistencias' },
   { label: 'Solicitantes', to: '/solicitantes' },
+  { label: 'Outlook', to: '/outlook' },
   { label: 'Importar Base', to: '/importar-base' }
 ];
 
@@ -95,6 +97,7 @@ function App() {
               <Route path="/historico" element={<Historico />} />
               <Route path="/inconsistencias" element={<Inconsistencias />} />
               <Route path="/solicitantes" element={<Solicitantes />} />
+              <Route path="/outlook" element={<Outlook />} />
               <Route path="/importar-base" element={<ImportarBase />} />
             </Routes>
           </div>
